@@ -15,7 +15,14 @@ A ready-to-open Packet Tracer network (`lab.pkt`) with five flags. Students expl
 
 Packet Tracer files are compressed XML in a Twofish/EAX wrapper. `build_lab.py` decodes Cisco's own bundled example `DNS-A-and-AAAA-records.pkt` (which has every device model we need), rewires it into the lab network (renames, IPs, MACs, VLANs, router NAT, DNS records, 115 web pages, notes, simulation filters), and re-encodes it. The result is saved in PT 8.0 format, so PT 8.x and 9.x can open it.
 
-To change anything (a flag, an IP, page wording):
+To change only page wording, flags, or DNS records, you don't need the PT base file. Refresh the existing file in place:
+
+```bash
+cd tools && npm install
+python3 build_lab.py --update ../lab.pkt
+```
+
+To change anything else (an IP, a MAC, the topology), do a full rebuild:
 
 ```bash
 cd tools && npm install          # once: pulls the pure-JS twofish package

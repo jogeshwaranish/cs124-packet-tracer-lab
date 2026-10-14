@@ -31,6 +31,7 @@ DOMAIN = "cs124.lab"
 CLIENT_GW, SERVER_GW, MASK = "192.168.10.1", "10.124.0.1", "255.255.255.0"
 DNS_IP = "10.124.0.10"
 R1_CLIENT_MAC = "00C5.1240.BEEF"  # Flag 5 depends on this
+R1_SERVER_MAC = "00C5.1240.0001"  # Flag 3 depends on this
 
 FLAGS = {
     1: "CS124{knock_knock_its_the_gateway}",
@@ -90,7 +91,7 @@ its own neighborhood, it hands the message to the gateway and lets the router pa
 request to a server hiding behind it (GATE-WEB, 10.124.0.40). This trick is called
 <b>port forwarding</b>, and your home Wi-Fi router can do it too.</p>
 {flag_box(1)}
-<p>Next: go back to your handout and start <b>Flag 2 (DNS)</b>.</p>
+<p><b>Next lead:</b> the club library lives at <b>library.{DOMAIN}</b>. Take that name to your handout's <b>Flag 2</b>.</p>
 """),
 }
 
@@ -104,7 +105,7 @@ did your browser connect. That answer is exactly what <b>nslookup</b> showed you
 <p>Fun fact: <b>www.{DOMAIN}</b> and <b>library.{DOMAIN}</b> are two names for the
 <b>same</b> IP address. Try nslookup on both. One building can have two street names.</p>
 {flag_box(2)}
-<p>Next: go back to your handout and start <b>Flag 3 (HTTP)</b>.</p>
+<p><b>Next lead:</b> someone left a postcard at <b>http://www.{DOMAIN}/postcard.html</b>. Take it to your handout's <b>Flag 3</b>.</p>
 """),
     "postcard.html": page("The Postcard (HTTP)", f"""
 <p>This page came to you over <b>HTTP</b>, the language browsers and web servers use.
@@ -115,13 +116,16 @@ the port is the apartment number: it says <i>which program</i> on the server sho
 <ol>
 <li>Switch to <b>Simulation Mode</b> and load this page again
 (http://www.{DOMAIN}/postcard.html).</li>
-<li>Click the first <b>HTTP</b> packet that leaves STUDENT-PC.</li>
+<li>Follow your request all the way to the server. Click the first <b>HTTP</b> event
+where "At Device" is <b>WEB-SERVER</b>.</li>
 <li>Under <b>Layer 4</b>, find the <b>destination port</b> (written "Dst Port").</li>
+<li>Under <b>Layer 2</b>, find the <b>source MAC</b> (written "Src. MAC"). Keep its last
+4 characters, lowercase.</li>
 <li>Go back to Realtime mode and visit:<br>
-<b>http://www.{DOMAIN}/port-NUMBER.html</b><br>
-replacing NUMBER with the destination port you found.</li>
+<b>http://www.{DOMAIN}/port-PORT-MAC.html</b><br>
+Example of the format only: port-8080-a1b2.html</li>
 </ol>
-<p>The right number unlocks Flag 3. A wrong number will tell you what you probably mixed up.</p>
+<p>The right pair unlocks Flag 3. A wrong pair tells you what you probably mixed up.</p>
 """),
     "osi.html": page("The Layer Cake (OSI model)", f"""
 <p>Every packet is wrapped in layers, like a gift in a box in a shipping box.
@@ -159,55 +163,95 @@ going) but not the letter inside.</p>
 <h2>Your mission</h2>
 <ol>
 <li>In <b>Simulation Mode</b>, load https://vault.{DOMAIN} again.</li>
-<li>Click the first <b>HTTPS</b> packet leaving STUDENT-PC and find its Layer 4
-<b>destination port</b>.</li>
-<li>In Realtime mode, visit <b>https://vault.{DOMAIN}/port-NUMBER.html</b></li>
+<li>Follow your request to the vault. Click the first <b>HTTPS</b> event where
+"At Device" is <b>VAULT</b>.</li>
+<li>Find its Layer 4 <b>destination port</b>.</li>
+<li>Find its Layer 3 <b>TTL</b> (in the <b>Inbound PDU Details</b> tab, IP section).</li>
+<li>In Realtime mode, visit <b>https://vault.{DOMAIN}/port-PORT-TTL.html</b><br>
+Example of the format only: port-8080-64.html</li>
 </ol>
 """),
 }
 
 
-def port_feedback(n, correct, scheme):
-    if n == correct:
-        return None
+def port_why(n, correct):
     if n >= 1024:
-        why = (f"{n} is the <b>source</b> port, the temporary 'return address' apartment "
-               "STUDENT-PC picked for itself. Look for the <b>destination</b> port instead.")
-    elif n == 53:
-        why = "53 is the <b>DNS</b> port. You clicked the DNS lookup, not the web request."
-    elif n == 80:
-        why = "80 is the port for plain <b>HTTP</b> (the postcard). This was an <b>HTTPS</b> packet."
-    elif n == 443:
-        why = "443 is the port for <b>HTTPS</b>. This page asked about a plain <b>HTTP</b> packet."
-    else:
-        why = "That's not the port this packet used."
-    return page("Not quite!", f"<p>{why}</p><p>Go back and look at Layer 4 again.</p>"
-                f"<p><a href='{scheme}'>Back to the start</a></p>")
+        return (f"Port <b>{n}</b> is the <b>source</b> port, the temporary 'return address' apartment "
+                "STUDENT-PC picked for itself. Look for the <b>destination</b> port instead.")
+    if n == 53:
+        return "Port <b>53</b> is the <b>DNS</b> port. You clicked the DNS lookup, not the web request."
+    if n == 80:
+        return "Port <b>80</b> is the port for plain <b>HTTP</b> (the postcard). This was an <b>HTTPS</b> packet."
+    if n == 443:
+        return "Port <b>443</b> is the port for <b>HTTPS</b>. This page asked about a plain <b>HTTP</b> packet."
+    return "That's not the port this packet used."
+
+
+def combo_pages(pages, prefix, answer, ports, seconds, second_hints, back, right_page):
+    """port-PORT-X.html for every PORT x X. The right pair gets right_page; every
+    other pair lists exactly which half is off."""
+    for port, x in itertools.product(ports, seconds):
+        if (str(port), x) == answer:
+            pages[f"{prefix}-{port}-{x}.html"] = right_page
+            continue
+        wrong = []
+        if str(port) != answer[0]:
+            wrong.append(port_why(port, int(answer[0])))
+        if x != answer[1]:
+            wrong.append(second_hints[x])
+        pages[f"{prefix}-{port}-{x}.html"] = page(
+            "Close, but not yet", "<p>Not quite. Here's what to recheck:</p>\n<ul>\n"
+            + "\n".join(f"<li>{w}</li>" for w in wrong)
+            + f"\n</ul>\n<p><a href='{back}'>Back to the start</a></p>")
+    for port in ports:  # the old one-value format: nudge toward the new one
+        pages[f"{prefix}-{port}.html"] = page(
+            "Almost: you need two values",
+            "<p>This flag needs <b>two</b> values in the address, separated by dashes. "
+            f"Re-read the mission on <a href='{back}'>the start page</a>.</p>")
 
 
 WRONG_PORTS = [53, 80, 443] + list(range(1024, 1031))
-for p in WRONG_PORTS:
-    if (fb := port_feedback(p, 80, "postcard.html")):
-        WWW_PAGES[f"port-{p}.html"] = fb
-    if (fb := port_feedback(p, 443, "index.html")):
-        VAULT_PAGES[f"port-{p}.html"] = fb
 
-WWW_PAGES["port-80.html"] = page("Port 80: correct!", f"""
+# Flag 3: dst port + L2 source MAC of the request as it arrives at WEB-SERVER (R1's server-side MAC).
+FLAG3_ANSWER = ("80", R1_SERVER_MAC[-4:].lower())
+FLAG3_MAC_HINTS = {
+    "0020": "<b>0020</b> is WEB-SERVER's own MAC, the <b>destination</b>. You want the <b>source</b>.",
+    "0010": "<b>0010</b> is STUDENT-PC's MAC. It sent the request, but MAC addresses don't survive "
+            "past a router. Look at the frame as it <b>arrives at WEB-SERVER</b>.",
+    "beef": "<b>beef</b> is R1's MAC on the <b>client</b> side. You're looking at the frame before R1 "
+            "re-wrapped it. Click the event where \"At Device\" is <b>WEB-SERVER</b>.",
+}
+combo_pages(WWW_PAGES, "port", FLAG3_ANSWER, WRONG_PORTS, ["0001", "0020", "0010", "beef"],
+            FLAG3_MAC_HINTS, "postcard.html", page("Port 80, via R1: correct!", f"""
 <p>Web servers listen for plain HTTP on port <b>80</b>. Your packet was addressed to
 10.124.0.20 (the building), <b>port 80</b> (the HTTP apartment).</p>
+<p>And look who handed it over: the frame's source MAC ended in <b>0001</b>. That's
+<b>R1</b>, not STUDENT-PC. Routers re-wrap every frame with their own MAC on the way out.
+The IP addresses stayed the same the whole trip. Remember that for Flag 5.</p>
 {flag_box(3)}
-<p><b>But there's a second site.</b> The vault, <b>vault.{DOMAIN}</b>, only opens
-sealed envelopes. Try <b>http://vault.{DOMAIN}</b> first and watch it fail. Then try
-<b>https://vault.{DOMAIN}</b>. Your handout has the details for Flag 4.</p>
-""")
+<p><b>Next lead:</b> there's a second site, the <b>vault</b> at <b>vault.{DOMAIN}</b>.
+It only opens sealed envelopes. Try <b>http://vault.{DOMAIN}</b> first and watch it fail.
+Then try <b>https://vault.{DOMAIN}</b>. Your handout has the details for Flag 4.</p>
+"""))
 
-VAULT_PAGES["port-443.html"] = page("Port 443: correct!", f"""
+# Flag 4: dst port + TTL of the request as it arrives at VAULT (one router hop: 128 - 1).
+FLAG4_ANSWER = ("443", "127")
+FLAG4_TTL_HINTS = {
+    "128": "TTL <b>128</b> is what the packet started with at STUDENT-PC. Look at it when it "
+           "<b>arrives at VAULT</b>. Did anything on the way change it?",
+    "126": "TTL <b>126</b> would mean two routers. Count the routers between STUDENT-PC and VAULT.",
+}
+combo_pages(VAULT_PAGES, "port", FLAG4_ANSWER, WRONG_PORTS, ["127", "128", "126"],
+            FLAG4_TTL_HINTS, "index.html", page("Port 443, one hop: correct!", f"""
 <p>HTTPS uses port <b>443</b>. Compare with Flag 3: plain HTTP used port <b>80</b>.</p>
 <p>Same idea, different apartment: the port tells the server which program (and which
 rules) should handle your message. The 443 program only speaks encrypted.</p>
+<p>The TTL dropped from 128 to <b>127</b> because your packet crossed one router, R1.
+Every router subtracts 1, so a lost packet can't loop forever.</p>
 {flag_box(4)}
-<p>Next: your handout's <b>Flag 5 (OSI)</b>. Start at <b>http://www.{DOMAIN}/osi.html</b>.</p>
-""")
+<p><b>Next lead:</b> the final case file is at <b>http://www.{DOMAIN}/osi.html</b>.
+Take it to your handout's <b>Flag 5</b>.</p>
+"""))
 
 # Flag 5: the file name IS the answer. Wrong-but-plausible combos get targeted hints.
 OSI_ANSWER = ("beef", "128", "80", "http")
@@ -395,14 +439,42 @@ def run_codec(mode, src, dst):
     subprocess.run(["node", str(HERE / "ptcrypt.js"), mode, str(src), str(dst)], check=True)
 
 
+def write_pkt(tree, out, build):
+    ET.indent(tree, space=" ")
+    tree.write(build / "lab.xml", encoding="utf-8", xml_declaration=False)
+    run_codec("e", build / "lab.xml", out)
+    run_codec("d", out, build / "roundtrip.xml")
+    assert (build / "roundtrip.xml").read_bytes() == (build / "lab.xml").read_bytes(), "round-trip mismatch"
+
+
+def update(lab, out, build):
+    """Content-only rebuild from an existing lab.pkt, for when the PT base file isn't at hand.
+    Topology, IPs and MACs are left exactly as they are."""
+    run_codec("d", lab, build / "base.xml")
+    tree = ET.parse(build / "base.xml")
+    net = tree.getroot().find("NETWORK")
+    devs = {d.findtext("ENGINE/NAME"): d for d in net.find("DEVICES")}
+    for _, name, *_, http, https, dns in SERVERS:
+        set_services(devs[name], http, https, dns)
+        set_http_files(devs[name], PAGES.get(name, {}))
+    net.find("DESCRIPTION").text = WELCOME_NOTE
+    write_pkt(tree, out, build)
+    print(f"updated {out}  ({sum(len(p) for p in PAGES.values())} web pages)")
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", required=True, help="path to DNS-A-and-AAAA-records.pkt from the PT install")
+    src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--base", help="path to DNS-A-and-AAAA-records.pkt from the PT install (full rebuild)")
+    src.add_argument("--update", metavar="LAB_PKT",
+                     help="an existing lab.pkt: only refresh web pages, DNS records and the welcome note")
     ap.add_argument("--out", default=str(ROOT / "lab.pkt"))
     args = ap.parse_args()
 
     build = ROOT / "build"
     build.mkdir(exist_ok=True)
+    if args.update:
+        return update(args.update, args.out, build)
     run_codec("d", args.base, build / "base.xml")
     tree = ET.parse(build / "base.xml")
     root = tree.getroot()
@@ -502,7 +574,7 @@ def main():
         setx(p, "POWER", "true")
         clear_ipv6(p)
     set_mac(rports[0], R1_CLIENT_MAC)
-    set_mac(rports[1], "00C5.1240.0001")
+    set_mac(rports[1], R1_SERVER_MAC)
     setx(rports[2], "IP", "")
     clear_ipv6(rports[2])
     set_config(r1, [
@@ -570,11 +642,7 @@ def main():
 
     net.find("DESCRIPTION").text = WELCOME_NOTE
 
-    ET.indent(tree, space=" ")
-    tree.write(build / "lab.xml", encoding="utf-8", xml_declaration=False)
-    run_codec("e", build / "lab.xml", args.out)
-    run_codec("d", args.out, build / "roundtrip.xml")
-    assert (build / "roundtrip.xml").read_bytes() == (build / "lab.xml").read_bytes(), "round-trip mismatch"
+    write_pkt(tree, args.out, build)
     print(f"wrote {args.out}  ({len(final) + 2} devices, {len(links_el)} links, "
           f"{sum(len(p) for p in PAGES.values())} web pages)")
 

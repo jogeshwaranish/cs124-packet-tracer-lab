@@ -15,7 +15,7 @@ Then the server does the whole thing in reverse to send the page back. You never
 
 In this MP you will see all of it. You've just joined the **CS124 Network Detective Agency**. Your case file is a small campus network built in **Cisco Packet Tracer**, a free network simulator used to teach networking. The network has three PCs, a switch, a router, a DNS server, and three web servers. It's already built and working. You won't configure anything. Your job is to **explore, click, inspect, and read**.
 
-Hidden in the network are **5 flags**. A flag looks like `CS124{some_words_here}`. Each flag is locked behind one idea. You'll unlock it by running a real command or by catching a real packet in slow motion and reading what's inside.
+Hidden in the network are **5 flags**. A flag looks like `CS124{some_words_here}`. Each flag is locked behind one idea, and each flag page gives you the lead for the next one, so do them in order. You'll unlock each one by running a real command or by catching a real packet in slow motion and reading what's inside.
 
 You're welcome to use Google, classmates, or an LLM to explain a concept you're stuck on. But the answers come from *your* network. An LLM can tell you what a default gateway is, but it can't tell you what's inside the packet on your screen.
 
@@ -188,42 +188,54 @@ The club library lives at **`library.cs124.lab`**. But computers only send data 
 
 ## Flag 3: The postcard
 
-*Learn: HTTP, ports, Simulation mode, Layer 4.*
+*Learn: HTTP, ports, Simulation mode, Layers 2 and 4.*
 
-1. In the Web Browser, visit `http://www.cs124.lab/postcard.html` and read the page.
+1. The Flag 2 page left you a lead: the address of a postcard. Visit it in the Web Browser and read the page.
 2. Now watch that same visit in slow motion:
    1. Click **Simulation** (bottom-right corner, or press Shift+S). An **Event List** panel appears.
    2. The filters are already set to show just the interesting packets (DNS, HTTP, HTTPS, ARP, ICMP). If you don't see packets later, click **Edit Filters** and make sure **HTTP** and **HTTPS** are ticked.
    3. Back in STUDENT-PC's Web Browser, click **Go** again on the same URL.
    4. Press **Play** (▶) in the Simulation panel, or press **Capture/Forward** repeatedly. Watch the little envelopes move across the network.
-   5. In the Event List, find the first row with Type **HTTP** where "At Device" is **STUDENT-PC**. Click the colored square in its **Info** column.
-   6. In the window that opens, stay on the **OSI Model** tab. Look at **Layer 4** and find **Dst Port** (the destination port).
+   5. Follow your request all the way to the server. In the Event List, find the first row with Type **HTTP** where "At Device" is **WEB-SERVER**. Click the colored square in its **Info** column.
+   6. In the window that opens, stay on the **OSI Model** tab and write down two values:
+      - **PORT:** Layer 4 → **Dst Port** (the destination port)
+      - **MAC:** Layer 2 → **Src. MAC** (the source MAC address): last 4 characters, lowercase
 3. Switch back to **Realtime**. In the browser, visit:
    ```
-   http://www.cs124.lab/port-<the destination port>.html
+   http://www.cs124.lab/port-PORT-MAC.html
    ```
+   This example only shows the format: `port-8080-a1b2.html`.
 
-🚩 The right port unlocks Flag 3. A wrong port gives you a hint about what you mixed up. The flag page also points you to a second site.
+🚩 The right pair unlocks Flag 3. A wrong pair tells you which value to recheck. The flag page also gives you your next lead.
 
-**Think about it:** Before HTTP showed up in the Event List, what other protocol did you see, and why did it have to come first?
+**Think about it:**
+- Before HTTP showed up in the Event List, what other protocol did you see, and why did it have to come first?
+- STUDENT-PC sent this request, so why isn't STUDENT-PC's MAC the source MAC when it arrives at WEB-SERVER? Whose MAC is it?
 
 ---
 
 ## Flag 4: The sealed envelope
 
-*Learn: HTTPS, encryption, why the port changes.*
+*Learn: HTTPS, encryption, why the port changes, TTL.*
 
-1. In the browser, try `http://vault.cs124.lab`. It should fail. That's on purpose.
-2. Now try `https://vault.cs124.lab` (note the **s**). Read the page.
-3. Repeat the Simulation mode steps from Flag 3, but this time for `https://vault.cs124.lab`. Click the first **HTTPS** packet at STUDENT-PC and find its **Layer 4 destination port**.
+The Flag 3 page told you about a second site: the vault.
+
+1. In the browser, try the vault's address with `http://`. It should fail. That's on purpose.
+2. Now try it with `https://` (note the **s**). Read the page.
+3. Repeat the Simulation mode steps from Flag 3, but this time for the `https://` address. Follow the request all the way to the vault: click the first **HTTPS** event where "At Device" is **VAULT**, and write down two values:
+   - **PORT:** OSI Model tab → Layer 4 → **Dst Port**
+   - **TTL:** **Inbound PDU Details** tab → IP section → **TTL**
 4. Back in Realtime, visit:
    ```
-   https://vault.cs124.lab/port-<the destination port>.html
+   https://<the vault's name>/port-PORT-TTL.html
    ```
+   This example only shows the format: `port-8080-64.html`.
 
-🚩 The flag is on that HTTPS page.
+🚩 The flag is on that HTTPS page, along with your final lead.
 
-**Think about it:** It's the same kind of request, but to a different port. Compare it with Flag 3. Why would a server use two different ports? Why did `http://vault.cs124.lab` fail?
+**Think about it:**
+- It's the same kind of request, but to a different port. Compare it with Flag 3. Why would a server use two different ports? Why did the `http://` address fail?
+- Every IP packet starts with a TTL. Why is the number you found what it is?
 
 ---
 
@@ -231,7 +243,7 @@ The club library lives at **`library.cs124.lab`**. But computers only send data 
 
 *Learn: the layers of a packet: Layer 2 (MAC), Layer 3 (IP, TTL), Layer 4 (ports), Layer 7 (application).*
 
-1. In Realtime, visit `http://www.cs124.lab/osi.html` and read the table.
+1. In Realtime, visit the page the Flag 4 page sent you to, and read the table.
 2. Switch to **Simulation**, click **Go** on that same page again, and press Play.
 3. Click the **first HTTP packet while it is still at STUDENT-PC**. Fill in:
 
@@ -250,7 +262,7 @@ The club library lives at **`library.cs124.lab`**. But computers only send data 
 
 🚩 Correct values reveal the final flag. Close-but-wrong values tell you which layer to recheck.
 
-**Big puzzle:** The Layer 2 destination MAC is **not** the web server's MAC. Whose is it? Check by clicking devices and comparing MAC addresses. Why does that make sense? (Hint: think back to Flag 1.)
+**Big puzzle:** The Layer 2 destination MAC is **not** the web server's MAC. Whose is it? Check by clicking devices and comparing MAC addresses. Why does that make sense? (Hint: think back to Flags 1 and 3.)
 
 ---
 

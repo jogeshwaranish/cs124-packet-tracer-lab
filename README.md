@@ -5,7 +5,7 @@ A ready-to-open Packet Tracer network (`lab.pkt`) with five flags. Students expl
 | File | For |
 |---|---|
 | `lab.pkt` | **Give this to students.** The pre-built campus network. |
-| `STUDENT_HANDOUT.md` | Give to students. Setup, the 5 stages with exact commands, glossary. Fill in the two `[instructor: …]` links. |
+| `writeup.md` | Give to students. Intro, learning goals, setup (Windows/macOS/Linux), the 5 stages with exact commands, what to submit, glossary. Fill in the three `[instructor: …]` links. |
 | `ANSWER_KEY.md` | Staff only. Flags, expected values, **pre-release test checklist**, troubleshooting. |
 | `tools/build_lab.py` | Regenerates `lab.pkt`. All IPs, flags, and page text live here. |
 | `tools/ptcrypt.js` | Packet Tracer file encoder/decoder (format documented by the open-source pka2xml project). |
@@ -28,4 +28,4 @@ On this machine the PT install is an AppImage. Extract it with `/opt/pt/packettr
 
 1. Open `lab.pkt` in Packet Tracer and run the **test checklist** in `ANSWER_KEY.md`.
 2. Optional: File → Save once from Packet Tracer, so the file is stamped by your PT version.
-3. Fill in the submission link and video link in `STUDENT_HANDOUT.md`.
+3. Fill in the video, download, and submission links in `writeup.md`.

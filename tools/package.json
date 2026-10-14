@@ -1,0 +1,6 @@
+{
+  "name": "cs124-pt-lab-tools",
+  "private": true,
+  "description": "Builds lab.pkt for the CS124 Packet Tracer lab",
+  "dependencies": { "twofish": "^1.0.0" }
+}
